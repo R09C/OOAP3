@@ -2,8 +2,8 @@
   "method": "POST",
   "url": "https://e-class.tsu.ru/videoconference/service/conferencesession",
   "headers": {
-    "Cookie": "bnpr=true; clientSettings=null%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3ANONE%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3Afalse%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3Afalse%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3Anull; AU_TOK=bf466eb5-b95e-4c15-b2d3-11147ae6b1ec; guest_name=test1; com.mind.session=9486fbfb-b4a3-4d69-a7ab-5036d7416328; locale=ru"
+    "Cookie": "bnpr=true; clientSettings=null%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3ANONE%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3Afalse%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3Afalse%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3Anull%3A%3A%3A%3A%3Anull; AU_TOK=995f375a-eec1-4f46-99e3-e16eef4cb651; guest_name=test1; com.mind.session=8cf59f5e-2732-4a2d-a279-0702d5dbd0bb; locale=ru"
   },
-  "postData": "7|0|9|https://e-class.tsu.ru/videoconference/|0A73E0CE3100205FB4E268695C482E09|com.mind.videoconference.rpc.api.ConferenceSessionService|setParticipantName|com.mind.videoconference.dto.id.ConferenceSessionParticipantId/1079013347|java.lang.String/2004016611|java.util.UUID/2940008275|a829c1ab-c3b7-4e10-af79-ff7378f6727e|test1|1|2|3|4|2|5|6|5|7|8|9|",
+  "postData": "7|0|9|https://e-class.tsu.ru/videoconference/|0A73E0CE3100205FB4E268695C482E09|com.mind.videoconference.rpc.api.ConferenceSessionService|setParticipantName|com.mind.videoconference.dto.id.ConferenceSessionParticipantId/1079013347|java.lang.String/2004016611|java.util.UUID/2940008275|f647798d-c224-4a59-a2fe-b0289e884234|test1|1|2|3|4|2|5|6|5|7|8|9|",
   "source_type": "XHR"
 }

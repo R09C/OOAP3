@@ -174,9 +174,10 @@ def run_capture_logic():
 
         text_input.clear()
         text_input.send_keys("test1")
+        second_label.click()
         print("В поле ввода введено: test1")
         print("Нажимаем вторую кнопку (ожидаем перехвата JS)...")
-        second_label.click()
+
         print("Вторая кнопка нажата.")
 
         print("Ожидание срабатывания JS перехватчика (несколько секунд)...")

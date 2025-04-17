@@ -11,6 +11,7 @@ def load_json_postData():
     return postData.split("|")
 
 
+
 def load_json_cookie():
     file_path = Path("captured_request_js.json")
 

