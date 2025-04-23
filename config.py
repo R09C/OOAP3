@@ -54,7 +54,7 @@ def get_headers(cookie):
     return BASE_HEADERS
 
 
-# CALLBACK_URL = "https://your-ngrok-url.ngrok-free.app"
+
 
 
 def get_xss(CALLBACK_URL):

