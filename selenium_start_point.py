@@ -171,9 +171,14 @@ def run_capture_logic():
                 )
             )
         )
+        time.sleep(2)
 
-        text_input.clear()
+        
         text_input.send_keys("test1")
+        time.sleep(2)
+        
+        # time.sleep(2)
+        
         second_label.click()
         print("В поле ввода введено: test1")
         print("Нажимаем вторую кнопку (ожидаем перехвата JS)...")

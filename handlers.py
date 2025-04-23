@@ -2,7 +2,7 @@ import abc
 import requests
 from context import RequestContext
 from exceptions import ChainException
-
+from requests_to_selenium import message_test_message
 
 class Handler(abc.ABC):
     def __init__(self, next_handler=None):
@@ -58,11 +58,10 @@ class AdminTokenHandler(Handler):
     def handle_request(self, context: RequestContext):
         print("AdminTokenHandler: Проверка токена на администраторский статус...")
         try:
-            response = requests.get(
-                f"{context.url}/check-admin",
-                headers=context.headers,
-            )
-            if response.status_code == 200 and response.json().get("is_admin"):
+            cookie = context.session_id
+            text = message_test_message(cookie)
+ 
+            if text==b'//OK[[],0,7]':
                 print("Токен подтвержден как администраторский.")
                 context.is_admin = True
             else:
@@ -81,7 +80,7 @@ class UserChatHandler(Handler):
             try:
                 from requests_to_selenium import message
 
-                message()
+                # message()
                 print("Сообщение успешно отправлено в чат.")
             except Exception as e:
                 raise ChainException(
